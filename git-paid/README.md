@@ -2,11 +2,6 @@
 
 > Find paid open-source work across bounty platforms, GitHub repos, and grant foundations — powered by a 3-tier TinyFish agent system.
 
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat&logo=fastapi&logoColor=white)
-![TinyFish](https://img.shields.io/badge/TinyFish-SDK-10B981?style=flat)
-![License](https://img.shields.io/badge/License-MIT-6D28D9?style=flat)
-
 ---
 
 ## What is GitPaid?

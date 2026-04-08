@@ -1,6 +1,6 @@
 ---
 name: company-hiring-intelligence
-description: Reverse-engineer what a company is building right now by reading their hiring signals. Given a company name, scrapes their careers page, LinkedIn Jobs, and engineering blog in parallel using TinyFish agents, then synthesizes patterns — which teams are growing, which technologies keep appearing, which roles have been posted repeatedly without being filled. Produces a structured intelligence report built for founders doing competitive research and engineers evaluating whether a company is worth joining.
+description: Reverse-engineer what a company is building by scraping their job postings, careers page, LinkedIn Jobs, and engineering blog using TinyFish web agents. Use whenever a user wants to understand a company's strategic direction from hiring signals, do competitive intelligence, figure out a tech stack from job descriptions, or evaluate whether a company is worth joining. Trigger on "what is [company] building", "what is [company] hiring for", "competitive intelligence", "[company] jobs", "should I join [company]", "hiring signals", "what teams are growing", "reverse engineer roadmap", or any request to understand a company's direction from public hiring activity. Always use this skill for company intelligence rather than guessing from memory. Also trigger when someone names a company and asks about strategy, tech stack, or org structure.
 ---
 
 # Company Hiring Intelligence — Reverse-Engineer What a Company Is Building From Their Job Postings

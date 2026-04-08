@@ -3,6 +3,7 @@
 > Find paid open-source work across bounty platforms, GitHub repos, and grant foundations — powered by a 3-tier TinyFish agent system.
 
 ---
+**Live Link**: https://git-paid.onrender.com/
 
 ## What is GitPaid?
 

@@ -10,7 +10,7 @@ import re
 import time
 from typing import Any
 
-from tinyfish import AsyncTinyFish, CompleteEvent, EventType, RunStatus
+from tinyfish import AsyncTinyFish, CompleteEvent, EventType, RunStatus, StreamingUrlEvent
 
 from models import (
     Opportunity,
@@ -50,10 +50,19 @@ GRANT_SOURCES = [
 
 # ── Core TinyFish SDK call ─────────────────────────────────────────────────────
 
-async def run_tinyfish_agent(url: str, goal: str) -> Any:
+async def run_tinyfish_agent(
+    url: str,
+    goal: str,
+    source_id: str | None = None,
+    queue: asyncio.Queue | None = None,
+) -> Any:
     """
     Call TinyFish using the official Python SDK (AsyncTinyFish).
     Reads TINYFISH_API_KEY automatically from the environment.
+
+    If source_id and queue are provided, streaming_url events are forwarded
+    to the queue so the frontend can show a live browser preview iframe.
+
     Returns result_json on COMPLETE, raises on failure.
     """
     print(f"[TinyFish] -> {url[:80]}")
@@ -62,7 +71,17 @@ async def run_tinyfish_agent(url: str, goal: str) -> Any:
     async with AsyncTinyFish() as client:
         async with client.agent.stream(url=url, goal=goal) as stream:
             async for event in stream:
-                if isinstance(event, CompleteEvent):
+
+                # ── Live preview: forward streaming URL to frontend ──────────
+                if isinstance(event, StreamingUrlEvent) and source_id and queue:
+                    print(f"[TinyFish] streaming_url for {source_id}: {event.streaming_url}")
+                    await queue.put({
+                        "type": "streaming_url",
+                        "source_id": source_id,
+                        "url": event.streaming_url,
+                    })
+
+                elif isinstance(event, CompleteEvent):
                     if event.status == RunStatus.COMPLETED:
                         print(f"[TinyFish] COMPLETE {url[:60]} | result type={type(event.result_json).__name__} | preview={str(event.result_json)[:200]}")
                         return event.result_json
@@ -349,7 +368,8 @@ async def _run_tier1_agent(source: SourceMeta, queue: asyncio.Queue, stack: str,
     try:
         prompts = build_tier1_prompts(stack, keywords)
         prompt = prompts.get(source.id, prompts["algora"])
-        raw = await run_tinyfish_agent(source.url, prompt)
+        # Pass source_id + queue so streaming_url events reach the frontend
+        raw = await run_tinyfish_agent(source.url, prompt, source_id=source.id, queue=queue)
         opps = parse_opportunities(raw, source.id, source.label, tier=1)
         # Post-filter: remove results that don't match the stack at all
         opps = _filter_by_relevance(opps, stack, keywords)
@@ -369,7 +389,8 @@ async def _run_tier3_agent(source: SourceMeta, queue: asyncio.Queue) -> None:
     )
     await queue.put(AgentStartedEvent(source_id=source.id))
     try:
-        raw = await run_tinyfish_agent(source.url, prompt)
+        # Pass source_id + queue so streaming_url events reach the frontend
+        raw = await run_tinyfish_agent(source.url, prompt, source_id=source.id, queue=queue)
         opps = parse_opportunities(raw, source.id, source.label, tier=3, opp_type="grant")
         await queue.put(AgentCompleteEvent(source_id=source.id, count=len(opps), opportunities=opps))
     except Exception as exc:
@@ -401,21 +422,37 @@ async def _run_tier2(stack: str, queue: asyncio.Queue) -> None:
     total = len(repo_urls)
     await queue.put(Tier2StatusEvent(phase="scanning", total=total))
 
+    # Pre-register all T2 repo sources so Live View can show tiles immediately
+    for ru in repo_urls:
+        owner_repo = "/".join(ru.rstrip("/").split("/")[-2:])
+        sid = f"tier2-{owner_repo.replace('/', '-')}"
+        await queue.put({
+            "type": "repo_source_registered",
+            "source_id": sid,
+            "label": owner_repo,
+            "tier": 2,
+        })
+
     scanned_count = 0
     lock = asyncio.Lock()
 
     async def _check_repo(repo_url: str) -> None:
         nonlocal scanned_count
         owner_repo = "/".join(repo_url.rstrip("/").split("/")[-2:])
+        source_id  = f"tier2-{owner_repo.replace('/', '-')}"
         issues_url = (
             f"{repo_url}/issues?q=is%3Aopen+"
             "label%3Abounty+OR+bounty+in%3Atitle+OR+reward+in%3Atitle+OR+paid+in%3Atitle"
         )
+        # Notify frontend this repo agent has started (enables Live View tile)
+        await queue.put(AgentStartedEvent(source_id=source_id))
         try:
-            raw2 = await run_tinyfish_agent(issues_url, TIER2B_PROMPT)
-            opps = parse_opportunities(
-                raw2, f"tier2-{owner_repo.replace('/', '-')}", owner_repo, tier=2
+            # Pass source_id + queue so streaming_url events reach the frontend
+            raw2 = await run_tinyfish_agent(
+                issues_url, TIER2B_PROMPT,
+                source_id=source_id, queue=queue,
             )
+            opps = parse_opportunities(raw2, source_id, owner_repo, tier=2)
         except Exception as exc:
             print(f"[Tier2] {owner_repo} error: {exc}")
             opps = []

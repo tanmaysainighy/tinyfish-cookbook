@@ -1,1057 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GitPaid — OSS Bounty & Grant Finder</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg:        #0a0c0f;
-    --bg2:       #0f1217;
-    --bg3:       #151920;
-    --border:    #1e2530;
-    --border2:   #2a3340;
-    --green:     #00ff88;
-    --green-dim: #00c866;
-    --green-bg:  rgba(0,255,136,0.06);
-    --yellow:    #ffd700;
-    --orange:    #ff8c42;
-    --red:       #ff4757;
-    --blue:      #4ecdc4;
-    --purple:    #c792ea;
-    --gray:      #4a5568;
-    --gray2:     #718096;
-    --text:      #c9d1d9;
-    --text-dim:  #6e7681;
-    --scanline:  rgba(0,255,136,0.015);
-    --glow:      0 0 20px rgba(0,255,136,0.15);
-    --glow-sm:   0 0 8px rgba(0,255,136,0.2);
-  }
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  html { height: 100%; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    line-height: 1.6;
-    min-height: 100vh;
-    overflow-x: hidden;
-    position: relative;
-  }
-
-  /* CRT scanlines overlay */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      var(--scanline) 2px,
-      var(--scanline) 4px
-    );
-    pointer-events: none;
-    z-index: 1000;
-  }
-
-  /* Vignette */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.6) 100%);
-    pointer-events: none;
-    z-index: 999;
-  }
-
-  /* ── Layout ── */
-  .app { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
-
-  /* ── Header ── */
-  .header {
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 20px;
-    margin-bottom: 24px;
-  }
-
-  .header-top {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 6px;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .logo-icon {
-    width: 32px; height: 32px;
-    background: var(--green-bg);
-    border: 1px solid var(--green);
-    border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px;
-    box-shadow: var(--glow-sm);
-  }
-
-  .logo-text {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--green);
-    text-shadow: var(--glow-sm);
-    letter-spacing: -0.5px;
-  }
-
-  .logo-sep { color: var(--border2); font-weight: 300; }
-
-  .logo-sub {
-    font-size: 11px;
-    color: var(--text-dim);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  .header-meta {
-    margin-left: auto;
-    text-align: right;
-    font-size: 11px;
-    color: var(--text-dim);
-    line-height: 1.8;
-  }
-
-  .status-dot {
-    display: inline-block;
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 6px var(--green);
-    margin-right: 5px;
-    animation: pulse-dot 2s infinite;
-  }
-
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  /* ── Search form ── */
-  .search-section {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-
-  .search-label {
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .search-label::before {
-    content: '//';
-    color: var(--green);
-    font-weight: 700;
-  }
-
-  .search-row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: flex-end;
-  }
-
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .field-label {
-    font-size: 10px;
-    color: var(--green-dim);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-
-  select, input[type="text"], input[type="number"] {
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    border-radius: 5px;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    padding: 8px 12px;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    appearance: none;
-  }
-
-  select:focus, input:focus {
-    border-color: var(--green);
-    box-shadow: 0 0 0 2px rgba(0,255,136,0.1);
-  }
-
-  select { cursor: pointer; min-width: 160px; }
-  input[type="text"] { min-width: 220px; }
-  input[type="number"] { width: 120px; }
-
-  .btn-search {
-    background: var(--green);
-    color: #000;
-    border: none;
-    border-radius: 5px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 8px 24px;
-    cursor: pointer;
-    letter-spacing: 0.5px;
-    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
-    white-space: nowrap;
-  }
-
-  .btn-search:hover { background: #00e87a; box-shadow: var(--glow); }
-  .btn-search:active { transform: scale(0.97); }
-  .btn-search:disabled { background: var(--gray); color: var(--text-dim); cursor: not-allowed; box-shadow: none; }
-
-  .btn-stop {
-    background: transparent;
-    color: var(--red);
-    border: 1px solid var(--red);
-    border-radius: 5px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    padding: 8px 16px;
-    cursor: pointer;
-    transition: background 0.15s;
-    display: none;
-  }
-
-  .btn-stop:hover { background: rgba(255,71,87,0.1); }
-  .btn-stop.visible { display: inline-block; }
-
-  /* ── Filter bar ── */
-  .filter-bar {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
-    margin-bottom: 16px;
-    padding: 10px 14px;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-
-  .filter-bar.visible { opacity: 1; }
-
-  .filter-btn {
-    background: transparent;
-    border: 1px solid var(--border2);
-    border-radius: 4px;
-    color: var(--text-dim);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    padding: 4px 10px;
-    cursor: pointer;
-    transition: all 0.15s;
-    letter-spacing: 0.5px;
-  }
-
-  .filter-btn:hover { border-color: var(--green); color: var(--green); }
-  .filter-btn.active { background: var(--green-bg); border-color: var(--green); color: var(--green); }
-  .filter-label { font-size: 10px; color: var(--text-dim); margin-right: 4px; text-transform: uppercase; letter-spacing: 1px; }
-
-  .sort-select {
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    border-radius: 4px;
-    color: var(--text-dim);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    padding: 4px 8px;
-    outline: none;
-    cursor: pointer;
-    margin-left: auto;
-  }
-
-  .sort-select:focus { border-color: var(--green); }
-
-  /* ── Two-column layout ── */
-  .main-layout {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 16px;
-    align-items: start;
-  }
-
-  @media (max-width: 900px) {
-    .main-layout { grid-template-columns: 1fr; }
-  }
-
-  /* ── Sidebar ── */
-  .sidebar { display: flex; flex-direction: column; gap: 12px; }
-
-  .panel {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  .panel-header {
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .panel-header .ph-icon { font-size: 12px; }
-
-  /* Agent status list */
-  .agent-list { padding: 8px 0; }
-
-  .agent-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 14px;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.2s;
-    font-size: 12px;
-  }
-
-  .agent-row:last-child { border-bottom: none; }
-  .agent-row:hover { background: rgba(255,255,255,0.02); }
-
-  .agent-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
-
-  .agent-info { flex: 1; min-width: 0; }
-  .agent-name { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .agent-meta { font-size: 10px; color: var(--text-dim); }
-
-  .agent-status {
-    font-size: 10px;
-    padding: 2px 7px;
-    border-radius: 3px;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .s-pending  { background: rgba(255,255,255,0.04); color: var(--text-dim); }
-  .s-scraping { background: rgba(255,215,0,0.1); color: var(--yellow); animation: blink 1.2s infinite; }
-  .s-done     { background: rgba(0,255,136,0.1); color: var(--green); }
-  .s-error    { background: rgba(255,71,87,0.1); color: var(--red); }
-
-  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
-
-  .agent-count {
-    font-size: 11px;
-    color: var(--green);
-    font-weight: 600;
-    min-width: 20px;
-    text-align: right;
-  }
-
-  /* Tier 2 panel */
-  .t2-panel { padding: 12px 14px; }
-
-  .t2-phase {
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .t2-phase-text { color: var(--blue); }
-
-  .progress-bar-wrap {
-    background: var(--bg3);
-    border-radius: 3px;
-    height: 5px;
-    margin-bottom: 8px;
-    overflow: hidden;
-  }
-
-  .progress-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--blue), var(--green));
-    border-radius: 3px;
-    transition: width 0.4s ease;
-    box-shadow: 0 0 8px rgba(78,205,196,0.4);
-    width: 0%;
-  }
-
-  .t2-repos { max-height: 180px; overflow-y: auto; }
-
-  .t2-repo-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 3px 0;
-    font-size: 11px;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
-  }
-
-  .t2-repo-name { color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
-  .t2-repo-count { color: var(--green); font-weight: 600; flex-shrink: 0; }
-  .t2-repo-count.zero { color: var(--gray); }
-
-  /* Stats panel */
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); }
-  .stat-box {
-    background: var(--bg2);
-    padding: 12px 14px;
-    text-align: center;
-  }
-  .stat-num { font-size: 22px; font-weight: 700; color: var(--green); line-height: 1; }
-  .stat-label { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-top: 3px; }
-
-  /* ── Results area ── */
-  .results-area { min-height: 400px; }
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 320px;
-    color: var(--text-dim);
-    text-align: center;
-    gap: 12px;
-  }
-
-  .empty-icon { font-size: 40px; opacity: 0.3; }
-  .empty-title { font-size: 14px; color: var(--gray2); }
-  .empty-sub { font-size: 12px; max-width: 300px; line-height: 1.7; }
-
-  .results-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  /* ── Opportunity card ── */
-  .opp-card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 16px;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 12px;
-    align-items: start;
-    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
-    animation: slide-in 0.3s ease both;
-    cursor: pointer;
-    text-decoration: none;
-  }
-
-  .opp-card:hover {
-    border-color: var(--border2);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    transform: translateY(-1px);
-  }
-
-  @keyframes slide-in {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .opp-tier-badge {
-    width: 28px; height: 28px;
-    border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  .t1-badge { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
-  .t2-badge { background: rgba(78,205,196,0.1); color: var(--blue); border: 1px solid rgba(78,205,196,0.3); }
-  .t3-badge { background: rgba(199,146,234,0.1); color: var(--purple); border: 1px solid rgba(199,146,234,0.3); }
-
-  .opp-body { min-width: 0; }
-
-  .opp-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
-    line-height: 1.4;
-    margin-bottom: 6px;
-    word-break: break-word;
-  }
-
-  .opp-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    font-size: 11px;
-  }
-
-  .opp-source { color: var(--text-dim); }
-  .opp-repo { color: var(--blue); }
-
-  .opp-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
-
-  .tag {
-    font-size: 10px;
-    padding: 2px 7px;
-    border-radius: 3px;
-    letter-spacing: 0.3px;
-    background: rgba(255,255,255,0.04);
-    color: var(--text-dim);
-    border: 1px solid var(--border);
-  }
-
-  .tag-skill { color: var(--blue); border-color: rgba(78,205,196,0.2); background: rgba(78,205,196,0.05); }
-  .tag-grant { color: var(--purple); border-color: rgba(199,146,234,0.2); background: rgba(199,146,234,0.05); }
-  .tag-diff-beginner  { color: var(--green); border-color: rgba(0,255,136,0.2); }
-  .tag-diff-advanced  { color: var(--red); border-color: rgba(255,71,87,0.2); }
-  .tag-diff-intermediate { color: var(--yellow); border-color: rgba(255,215,0,0.2); }
-
-  .opp-deadline { font-size: 10px; color: var(--orange); margin-top: 4px; }
-
-  .opp-amount {
-    text-align: right;
-    flex-shrink: 0;
-  }
-
-  .amount-num {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--yellow);
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .amount-currency { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-  .amount-na { font-size: 11px; color: var(--gray); }
-
-  .opp-type-pill {
-    display: inline-block;
-    font-size: 9px;
-    padding: 2px 6px;
-    border-radius: 3px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    margin-top: 4px;
-  }
-
-  .pill-bounty { background: rgba(0,255,136,0.08); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
-  .pill-grant  { background: rgba(199,146,234,0.08); color: var(--purple); border: 1px solid rgba(199,146,234,0.2); }
-
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-
-  /* ── Error / loading ── */
-  .status-bar {
-    padding: 10px 14px;
-    font-size: 12px;
-    border-radius: 6px;
-    margin-bottom: 12px;
-    display: none;
-  }
-  .status-bar.info  { background: rgba(78,205,196,0.08); border: 1px solid rgba(78,205,196,0.2); color: var(--blue); display: block; }
-  .status-bar.error { background: rgba(255,71,87,0.08); border: 1px solid rgba(255,71,87,0.2); color: var(--red); display: block; }
-
-  /* ── Prompt prefix animation ── */
-  .prompt-prefix {
-    color: var(--green);
-    animation: cursor-blink 1s step-end infinite;
-  }
-  @keyframes cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
-
-  .tier-divider {
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    padding: 8px 0 4px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .tier-divider::after { content:''; flex:1; height:1px; background:var(--border); }
-
-  .results-count {
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-bottom: 12px;
-  }
-  .results-count span { color: var(--green); font-weight: 600; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitPaid — OSS Bounty & Grant Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
 <div class="app">
 
-  <!-- Header -->
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
   <header class="header">
-    <div class="header-top">
-      <div class="logo">
-        <div class="logo-icon">💰</div>
-        <span class="logo-text">GitPaid</span>
-        <span class="logo-sep"> / </span>
-        <span class="logo-sub">OSS Bounty &amp; Grant Finder</span>
-      </div>
-      <div class="header-meta">
-        <div><span class="status-dot"></span>3-tier agent system</div>
-        <div>T1: Aggregators · T2: Repo Discovery · T3: Grants</div>
-      </div>
+    <div class="logo">
+      <div class="logo-wordmark">Git<span>Paid</span></div>
+      <div class="logo-divider"></div>
+      <div class="logo-sub">OSS Bounty &amp; Grant Finder</div>
+    </div>
+    <div class="header-right">
+      <div class="tier-chip"><div class="chip-dot cd-green"></div>Aggregators</div>
+      <div class="tier-chip"><div class="chip-dot cd-blue"></div>Repo Discovery</div>
+      <div class="tier-chip"><div class="chip-dot cd-purple"></div>Grants</div>
     </div>
   </header>
 
-  <!-- Search -->
-  <section class="search-section">
-    <div class="search-label">search parameters</div>
+  <!-- ── Search ──────────────────────────────────────────────────────────── -->
+  <div class="search-panel">
+    <div class="panel-eyebrow">Search Parameters</div>
     <div class="search-row">
       <div class="field">
-        <div class="field-label">stack</div>
+        <div class="field-label">Stack</div>
         <select id="stack">
-          <option>Python</option>
-          <option>TypeScript</option>
-          <option>JavaScript</option>
-          <option>Rust</option>
-          <option>Go</option>
-          <option>Java</option>
-          <option>C++</option>
-          <option>Swift</option>
-          <option>Elixir</option>
-          <option>Zig</option>
-          <option>Ruby</option>
-          <option>Haskell</option>
+          <option>Python</option><option>TypeScript</option><option>JavaScript</option>
+          <option>Rust</option><option>Go</option><option>Java</option>
+          <option>C++</option><option>Swift</option><option>Elixir</option>
+          <option>Zig</option><option>Ruby</option><option>Haskell</option>
         </select>
       </div>
       <div class="field">
-        <div class="field-label">keywords</div>
+        <div class="field-label">Keywords</div>
         <input type="text" id="keywords" placeholder="async, cli, web3 …">
       </div>
       <div class="field">
-        <div class="field-label">min $</div>
+        <div class="field-label">Min $</div>
         <input type="number" id="min-amount" value="0" min="0" placeholder="0">
       </div>
-      <button class="btn-search" id="btn-search" onclick="startSearch()">▶ SEARCH</button>
-      <button class="btn-stop" id="btn-stop" onclick="stopSearch()">■ STOP</button>
+      <button class="btn-search" id="btn-search" onclick="startSearch()">
+        <span class="btn-icon">▶</span>
+        <div class="btn-spinner"></div>
+        Search
+      </button>
+      <button class="btn-stop" id="btn-stop" onclick="stopSearch()">■ Stop</button>
     </div>
-  </section>
-
-  <!-- Status bar -->
-  <div class="status-bar" id="status-bar"></div>
-
-  <!-- Filter bar -->
-  <div class="filter-bar" id="filter-bar">
-    <span class="filter-label">type:</span>
-    <button class="filter-btn active" data-filter="type" data-val="all" onclick="setFilter('type','all',this)">all</button>
-    <button class="filter-btn" data-filter="type" data-val="bounty" onclick="setFilter('type','bounty',this)">bounty</button>
-    <button class="filter-btn" data-filter="type" data-val="grant" onclick="setFilter('type','grant',this)">grant</button>
-    <span class="filter-label" style="margin-left:8px">tier:</span>
-    <button class="filter-btn active" data-filter="tier" data-val="all" onclick="setFilter('tier','all',this)">all</button>
-    <button class="filter-btn" data-filter="tier" data-val="1" onclick="setFilter('tier','1',this)">T1</button>
-    <button class="filter-btn" data-filter="tier" data-val="2" onclick="setFilter('tier','2',this)">T2</button>
-    <button class="filter-btn" data-filter="tier" data-val="3" onclick="setFilter('tier','3',this)">T3</button>
-    <select class="sort-select" id="sort-select" onchange="renderResults()">
-      <option value="amount_desc">sort: $ high→low</option>
-      <option value="amount_asc">sort: $ low→high</option>
-      <option value="tier_asc">sort: tier 1→3</option>
-      <option value="newest">sort: newest first</option>
-    </select>
   </div>
 
-  <!-- Main layout -->
-  <div class="main-layout" id="main-layout" style="display:none">
+  <!-- ── Status bar ──────────────────────────────────────────────────────── -->
+  <div class="status-bar" id="status-bar"></div>
 
-    <!-- Sidebar -->
+  <!-- ── Main layout ─────────────────────────────────────────────────────── -->
+  <div class="main-layout" id="main-layout" style="display:none">
     <aside class="sidebar">
 
       <!-- Stats -->
       <div class="panel">
-        <div class="panel-header"><span class="ph-icon">📊</span> totals</div>
+        <div class="panel-header">📊 Overview</div>
         <div class="stats-grid">
-          <div class="stat-box"><div class="stat-num" id="stat-total">0</div><div class="stat-label">results</div></div>
-          <div class="stat-box"><div class="stat-num" id="stat-bounties">0</div><div class="stat-label">bounties</div></div>
-          <div class="stat-box"><div class="stat-num" id="stat-grants">0</div><div class="stat-label">grants</div></div>
-          <div class="stat-box"><div class="stat-num" id="stat-agents">0</div><div class="stat-label">agents run</div></div>
+          <div class="stat-cell"><div class="stat-n" id="s-total">0</div><div class="stat-l">Results</div></div>
+          <div class="stat-cell"><div class="stat-n" id="s-bounties">0</div><div class="stat-l">Bounties</div></div>
+          <div class="stat-cell"><div class="stat-n" id="s-grants">0</div><div class="stat-l">Grants</div></div>
+          <div class="stat-cell"><div class="stat-n" id="s-agents">0</div><div class="stat-l">Agents</div></div>
         </div>
       </div>
 
-      <!-- Agent status panel -->
+      <!-- Agent status (T1 + T3 only — T2 repos shown in Live View) -->
       <div class="panel">
-        <div class="panel-header"><span class="ph-icon">🤖</span> agent status</div>
+        <div class="panel-header">🤖 Agent Status</div>
         <div class="agent-list" id="agent-list"></div>
       </div>
 
-      <!-- Tier 2 discovery panel -->
-      <div class="panel" id="t2-panel">
-        <div class="panel-header"><span class="ph-icon">🔍</span> tier 2 discovery</div>
-        <div class="t2-panel">
-          <div class="t2-phase">phase: <span class="t2-phase-text" id="t2-phase-text">idle</span></div>
-          <div class="progress-bar-wrap">
-            <div class="progress-bar-fill" id="t2-progress"></div>
+      <!-- Tier 2 repo discovery -->
+      <div class="panel">
+        <div class="panel-header">🔍 Repo Discovery</div>
+        <div class="t2-body">
+          <div class="t2-meta">
+            <span class="t2-meta-label">Phase</span>
+            <span class="t2-phase-val" id="t2-phase">idle</span>
           </div>
-          <div id="t2-progress-label" style="font-size:10px;color:var(--text-dim);margin-bottom:8px">—</div>
-          <div class="t2-repos" id="t2-repos"></div>
+          <div class="prog-track"><div class="prog-fill" id="t2-prog"></div></div>
+          <div class="prog-label" id="t2-lbl">—</div>
+          <div class="repo-scroll" id="t2-repos"></div>
         </div>
       </div>
 
     </aside>
 
-    <!-- Results -->
+    <!-- ── Right column ───────────────────────────────────────────────────── -->
     <main class="results-area">
-      <div class="results-count" id="results-count" style="display:none">
-        showing <span id="results-showing">0</span> of <span id="results-total-count">0</span> results
-      </div>
-      <div class="results-grid" id="results-grid"></div>
-    </main>
 
+      <!-- View toggle + filter bar -->
+      <div class="view-toolbar">
+
+        <!-- Results / Live View tabs -->
+        <div class="view-tabs">
+          <button id="tab-results" class="view-tab active" onclick="setView('results')">
+            📋 Results
+          </button>
+          <button id="tab-live" class="view-tab" onclick="setView('live')">
+            🖥️ Live Agents
+            <span id="live-tab-count" class="live-tab-badge" style="display:none"></span>
+          </button>
+        </div>
+
+        <!-- Filters (only shown in Results view) -->
+        <div class="filter-bar visible" id="filter-bar">
+          <div class="filter-group">
+            <span class="filter-sep">Type</span>
+            <button class="filter-btn active" data-filter="type" data-val="all"    onclick="setFilter('type','all',this)">All</button>
+            <button class="filter-btn"        data-filter="type" data-val="bounty" onclick="setFilter('type','bounty',this)">Bounty</button>
+            <button class="filter-btn"        data-filter="type" data-val="grant"  onclick="setFilter('type','grant',this)">Grant</button>
+          </div>
+          <span style="color:var(--border2);font-size:16px;font-weight:300">|</span>
+          <div class="filter-group">
+            <span class="filter-sep">Tier</span>
+            <button class="filter-btn active" data-filter="tier" data-val="all" onclick="setFilter('tier','all',this)">All</button>
+            <button class="filter-btn"        data-filter="tier" data-val="1"   onclick="setFilter('tier','1',this)">T1</button>
+            <button class="filter-btn"        data-filter="tier" data-val="2"   onclick="setFilter('tier','2',this)">T2</button>
+            <button class="filter-btn"        data-filter="tier" data-val="3"   onclick="setFilter('tier','3',this)">T3</button>
+          </div>
+          <select class="sort-select" id="sort-select" onchange="renderResults()">
+            <option value="amount_desc">$ High → Low</option>
+            <option value="amount_asc">$ Low → High</option>
+            <option value="tier_asc">Tier 1 → 3</option>
+            <option value="newest">Newest First</option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- ── Results view ─────────────────────────────────────────────────── -->
+      <div id="results-view">
+        <div class="results-meta" id="results-meta">
+          Showing <strong id="r-showing">0</strong>&nbsp;of&nbsp;<strong id="r-total">0</strong> results
+        </div>
+        <div id="skel-area"></div>
+        <div class="results-grid" id="results-grid"></div>
+      </div>
+
+      <!-- ── Live Agents view ─────────────────────────────────────────────── -->
+      <div id="live-view" style="display:none">
+        <div class="live-view-header">
+          <div class="live-view-desc">
+            Each tile shows a TinyFish browser session navigating a site in real time.
+            Tiles appear as agents start — live streams render as iframes.
+          </div>
+          <div class="live-filter-bar">
+            <span class="filter-sep">Show</span>
+            <button class="live-filter-btn active" onclick="setLiveFilter('all',this)">All agents</button>
+            <button class="live-filter-btn" onclick="setLiveFilter('t1t3',this)">T1 + T3 only</button>
+            <button class="live-filter-btn" onclick="setLiveFilter('t2',this)">Repo agents (T2)</button>
+          </div>
+        </div>
+        <div class="live-grid" id="live-grid">
+          <div class="live-empty">
+            <div class="live-empty-icon">🤖</div>
+            <div>No agents running yet — hit Search to start</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
   </div>
 
-  <!-- Empty state (before first search) -->
+  <!-- ── Empty state ─────────────────────────────────────────────────────── -->
   <div class="empty-state" id="empty-state">
-    <div class="empty-icon">🪄</div>
-    <div class="empty-title"><span class="prompt-prefix">$ </span>gitpaid --stack &lt;your-stack&gt;</div>
-    <div class="empty-sub">Select your stack, add optional keywords, and hit Search.<br>All three agent tiers run concurrently — results stream in as they land.</div>
+    <div class="empty-icon-wrap">💰</div>
+    <div class="empty-headline">Find paid open source work</div>
+    <div class="empty-body">
+      Select your stack, add optional keywords, and hit Search.
+      Three agent tiers run concurrently — results stream in live.
+    </div>
+    <div class="empty-chips">
+      <div class="empty-chip">T1 · Aggregators</div>
+      <div class="empty-chip">T2 · Repo Discovery</div>
+      <div class="empty-chip">T3 · Grants</div>
+    </div>
   </div>
 
 </div>
-
-<script>
-// ── State ────────────────────────────────────────────────────────────────────
-let allOpportunities = [];
-let agentStates = {};       // sourceId → { label, status, count, tier }
-let t2Total = 0, t2Scanned = 0;
-let agentsRun = 0;
-let activeReader = null;
-let filters = { type: 'all', tier: 'all' };
-
-// ── Format helpers ───────────────────────────────────────────────────────────
-function fmtAmount(amount, currency) {
-  if (amount == null || amount === 0) return null;
-  const sym = currency === 'EUR' ? '€' : '$';
-  if (amount >= 1000) return sym + (amount / 1000).toFixed(0) + 'k';
-  return sym + amount.toFixed(0);
-}
-
-function tierBadge(tier) {
-  const cls = ['', 't1-badge', 't2-badge', 't3-badge'][tier];
-  return `<div class="opp-tier-badge ${cls}">T${tier}</div>`;
-}
-
-function diffTag(diff) {
-  if (!diff) return '';
-  const cls = `tag-diff-${diff}`;
-  return `<span class="tag ${cls}">${diff}</span>`;
-}
-
-// ── Render functions ─────────────────────────────────────────────────────────
-function renderAgentList() {
-  const list = document.getElementById('agent-list');
-  const entries = Object.entries(agentStates);
-  if (!entries.length) { list.innerHTML = ''; return; }
-
-  list.innerHTML = entries.map(([id, s]) => {
-    const tierLabel = ['', 'T1', 'T2', 'T3'][s.tier] || '';
-    const statusClass = { pending: 's-pending', scraping: 's-scraping', done: 's-done', error: 's-error' }[s.status] || 's-pending';
-    const statusText = { pending: 'pending', scraping: 'scraping…', done: 'done', error: 'error' }[s.status] || 'pending';
-    const icon = s.tier === 1 ? '🔎' : s.tier === 3 ? '🏛️' : '⚡';
-    return `
-      <div class="agent-row">
-        <span class="agent-icon">${icon}</span>
-        <div class="agent-info">
-          <div class="agent-name">${s.label}</div>
-          <div class="agent-meta">${tierLabel}</div>
-        </div>
-        <span class="agent-status ${statusClass}">${statusText}</span>
-        <span class="agent-count">${s.count > 0 ? s.count : ''}</span>
-      </div>`;
-  }).join('');
-}
-
-function renderStats() {
-  const visible = getFiltered();
-  document.getElementById('stat-total').textContent = allOpportunities.length;
-  document.getElementById('stat-bounties').textContent = allOpportunities.filter(o => o.type === 'bounty').length;
-  document.getElementById('stat-grants').textContent = allOpportunities.filter(o => o.type === 'grant').length;
-  document.getElementById('stat-agents').textContent = agentsRun;
-
-  const rc = document.getElementById('results-count');
-  rc.style.display = allOpportunities.length ? 'block' : 'none';
-  document.getElementById('results-showing').textContent = visible.length;
-  document.getElementById('results-total-count').textContent = allOpportunities.length;
-}
-
-function getFiltered() {
-  let list = [...allOpportunities];
-  if (filters.type !== 'all') list = list.filter(o => o.type === filters.type);
-  if (filters.tier !== 'all') list = list.filter(o => String(o.tier) === filters.tier);
-
-  const sort = document.getElementById('sort-select').value;
-  if (sort === 'amount_desc') list.sort((a, b) => (b.bounty_amount || 0) - (a.bounty_amount || 0));
-  else if (sort === 'amount_asc') list.sort((a, b) => (a.bounty_amount || 0) - (b.bounty_amount || 0));
-  else if (sort === 'tier_asc') list.sort((a, b) => a.tier - b.tier);
-  // newest: natural insertion order (already newest-last; reverse)
-  else list.reverse();
-
-  return list;
-}
-
-function renderResults() {
-  const grid = document.getElementById('results-grid');
-  const visible = getFiltered();
-  renderStats();
-
-  grid.innerHTML = visible.map((o, idx) => {
-    const amtStr = fmtAmount(o.bounty_amount, o.currency);
-    const skillTags = (o.skills || []).slice(0, 5).map(s => `<span class="tag tag-skill">${s}</span>`).join('');
-    const diffTag_ = diffTag(o.difficulty);
-    const deadlineHtml = o.deadline ? `<div class="opp-deadline">⏰ deadline: ${o.deadline}</div>` : '';
-    const descHtml = o.description ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;line-height:1.5">${o.description.slice(0,120)}${o.description.length > 120 ? '…' : ''}</div>` : '';
-    return `
-      <a class="opp-card" href="${o.url || '#'}" target="_blank" rel="noopener" style="animation-delay:${Math.min(idx * 0.03, 0.4)}s">
-        ${tierBadge(o.tier)}
-        <div class="opp-body">
-          <div class="opp-title">${o.title}</div>
-          <div class="opp-meta">
-            <span class="opp-source">${o.source_label}</span>
-            ${o.repo ? `<span class="opp-repo">⎇ ${o.repo}</span>` : ''}
-          </div>
-          <div class="opp-tags">
-            <span class="opp-type-pill pill-${o.type}">${o.type}</span>
-            ${diffTag_}
-            ${skillTags}
-          </div>
-          ${descHtml}
-          ${deadlineHtml}
-        </div>
-        <div class="opp-amount">
-          ${amtStr
-            ? `<div class="amount-num">${amtStr}</div><div class="amount-currency">${o.currency || ''}</div>`
-            : `<div class="amount-na">TBD</div>`}
-        </div>
-      </a>`;
-  }).join('');
-}
-
-function setFilter(type, val, btn) {
-  filters[type] = val;
-  document.querySelectorAll(`[data-filter="${type}"]`).forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderResults();
-}
-
-// ── Event handlers ───────────────────────────────────────────────────────────
-function handleEvent(evt) {
-  switch (evt.type) {
-    case 'sources':
-      evt.sources.forEach(s => {
-        if (s.tier !== 2) {
-          agentStates[s.id] = { label: s.label, status: 'pending', count: 0, tier: s.tier };
-        }
-      });
-      renderAgentList();
-      break;
-
-    case 'agent_started':
-      if (agentStates[evt.source_id]) {
-        agentStates[evt.source_id].status = 'scraping';
-        renderAgentList();
-      }
-      break;
-
-    case 'agent_complete':
-      agentsRun++;
-      if (agentStates[evt.source_id]) {
-        agentStates[evt.source_id].status = 'done';
-        agentStates[evt.source_id].count = evt.count;
-      }
-      allOpportunities.push(...(evt.opportunities || []));
-      renderAgentList();
-      renderResults();
-      break;
-
-    case 'agent_error':
-      agentsRun++;
-      if (agentStates[evt.source_id]) {
-        agentStates[evt.source_id].status = 'error';
-      }
-      renderAgentList();
-      renderStats();
-      break;
-
-    case 'tier2_status': {
-      const phaseEl = document.getElementById('t2-phase-text');
-      const progEl = document.getElementById('t2-progress');
-      const labelEl = document.getElementById('t2-progress-label');
-      phaseEl.textContent = evt.phase;
-      if (evt.phase === 'scanning') {
-        t2Total = evt.total || 0;
-        t2Scanned = 0;
-        labelEl.textContent = `0 / ${t2Total} repos scanned`;
-        progEl.style.width = '0%';
-      } else if (evt.phase === 'done') {
-        labelEl.textContent = `${t2Total} repos scanned`;
-        progEl.style.width = '100%';
-        agentsRun++;
-      } else if (evt.phase === 'error') {
-        phaseEl.style.color = 'var(--red)';
-        labelEl.textContent = evt.error || 'error';
-      }
-      break;
-    }
-
-    case 'tier2_repo_done':
-      t2Scanned = evt.scanned;
-      const pct = t2Total ? Math.round((t2Scanned / t2Total) * 100) : 0;
-      document.getElementById('t2-progress').style.width = pct + '%';
-      document.getElementById('t2-progress-label').textContent = `${t2Scanned} / ${t2Total} repos scanned`;
-
-      // Add to T2 repo list
-      const reposEl = document.getElementById('t2-repos');
-      const row = document.createElement('div');
-      row.className = 't2-repo-row';
-      row.innerHTML = `<span class="t2-repo-name">${evt.repo}</span><span class="t2-repo-count ${evt.count === 0 ? 'zero' : ''}">${evt.count > 0 ? '+' + evt.count : '—'}</span>`;
-      reposEl.appendChild(row);
-      reposEl.scrollTop = reposEl.scrollHeight;
-
-      allOpportunities.push(...(evt.opportunities || []));
-      renderResults();
-      break;
-
-    case 'done':
-      setSearching(false);
-      showStatus('Search complete — ' + allOpportunities.length + ' opportunities found.', 'info');
-      setTimeout(() => hideStatus(), 4000);
-      break;
-
-    case 'error':
-      setSearching(false);
-      showStatus('Error: ' + (evt.message || 'Unknown error'), 'error');
-      break;
-  }
-}
-
-// ── Search control ───────────────────────────────────────────────────────────
-async function startSearch() {
-  const stack = document.getElementById('stack').value;
-  const keywords = document.getElementById('keywords').value.trim();
-  const minAmount = parseFloat(document.getElementById('min-amount').value) || 0;
-
-  // Reset state
-  allOpportunities = [];
-  agentStates = {};
-  t2Total = 0; t2Scanned = 0; agentsRun = 0;
-
-  document.getElementById('t2-repos').innerHTML = '';
-  document.getElementById('t2-phase-text').textContent = 'idle';
-  document.getElementById('t2-progress').style.width = '0%';
-  document.getElementById('t2-progress-label').textContent = '—';
-  document.getElementById('results-grid').innerHTML = '';
-  document.getElementById('t2-phase-text').style.color = 'var(--blue)';
-
-  // Show layout
-  document.getElementById('empty-state').style.display = 'none';
-  document.getElementById('main-layout').style.display = 'grid';
-  document.getElementById('filter-bar').classList.add('visible');
-  setSearching(true);
-  hideStatus();
-  showStatus(`Launching agents for ${stack}…`, 'info');
-
-  try {
-    const resp = await fetch('/api/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stack, keywords, min_amount: minAmount }),
-    });
-
-    if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
-
-    const reader = resp.body.getReader();
-    activeReader = reader;
-    const decoder = new TextDecoder();
-    let buf = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const parts = buf.split('\n\n');
-      buf = parts.pop();
-      for (const part of parts) {
-        for (const line of part.split('\n')) {
-          if (line.startsWith('data: ')) {
-            try { handleEvent(JSON.parse(line.slice(6))); } catch(e) {}
-          }
-        }
-      }
-    }
-  } catch (err) {
-    if (err.name !== 'AbortError') {
-      setSearching(false);
-      showStatus('Connection error: ' + err.message, 'error');
-    }
-  }
-}
-
-function stopSearch() {
-  if (activeReader) { activeReader.cancel(); activeReader = null; }
-  setSearching(false);
-  showStatus('Search stopped.', 'info');
-  setTimeout(hideStatus, 3000);
-}
-
-function setSearching(on) {
-  document.getElementById('btn-search').disabled = on;
-  document.getElementById('btn-stop').classList.toggle('visible', on);
-  if (!on) activeReader = null;
-}
-
-function showStatus(msg, type) {
-  const bar = document.getElementById('status-bar');
-  bar.textContent = msg;
-  bar.className = 'status-bar ' + type;
-}
-
-function hideStatus() {
-  document.getElementById('status-bar').className = 'status-bar';
-}
-
-// Enter key on inputs
-['keywords', 'min-amount'].forEach(id => {
-  document.getElementById(id).addEventListener('keydown', e => {
-    if (e.key === 'Enter') startSearch();
-  });
-});
-</script>
+<script src="/static/app.js"></script>
 </body>
 </html>

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from agents import run_search
 from models import SearchRequest
@@ -32,6 +33,10 @@ app.add_middleware(
 BASE_DIR = Path(__file__).resolve().parent
 static_dir = BASE_DIR / "static"
 static_dir.mkdir(exist_ok=True)
+
+
+# Serve static assets (styles.css, app.js)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
